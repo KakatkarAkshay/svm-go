@@ -12,6 +12,10 @@ concurrency:
   group: build-workflow
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   docker:
     runs-on: ubuntu-latest
@@ -25,26 +29,21 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to DockerHub
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
-      - name: Resolve tags
-        id: resolve_tags
-        run: |
-          {
-            echo "tags<<EOF"
-            if [[ "${GITHUB_REF:-}" == refs/tags/* ]]; then
-              tag="${GITHUB_REF#refs/tags/}"
-              echo "saltydk/svm:${tag}"
-              echo "saltydk/svm:latest"
-            else
-              echo "saltydk/svm:dev"
-            fi
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+      - name: Calculate Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short,prefix=sha-
 
       - name: Build and push
         id: docker_build
@@ -52,4 +51,5 @@ jobs:
         with:
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.resolve_tags.outputs.tags }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
