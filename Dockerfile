@@ -1,10 +1,8 @@
 # Build stage
 FROM golang:1.26-alpine AS builder
 
-# Set environment variables
-ENV CGO_ENABLED=0
-ENV GOOS=linux
-ENV GOARCH=amd64
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
 
 # Set work directory
 WORKDIR /app
@@ -19,7 +17,7 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN go build -ldflags="-w -s" -o svm ./cmd/svm/main.go
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags="-w -s" -o svm ./cmd/svm/main.go
 
 # Runtime stage
 FROM alpine:latest
